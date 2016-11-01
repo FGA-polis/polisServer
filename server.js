@@ -6828,6 +6828,10 @@ Email verified! You can close this tab or hit the back button.
           return;
         }
 
+        if (_.isUndefined(txt)) {
+          console.log("undefined txt");
+          console.dir(req.p);
+        }
         let bad = hasBadWords(txt);
         isSpamPromise.then(function(spammy) {
           winston.log("info", "spam test says: " + txt + " " + (spammy ? "spammy" : "not_spammy"));
