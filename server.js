@@ -2367,7 +2367,7 @@ function initializePolisHelpers(mongoParams) {
 
 
 
-  function doProxyDataExportCall(req, res, urlBuilderFunction, returnImmediately) {
+  function doProxyDataExportCall(retryCount, req, res, urlBuilderFunction, returnImmediately) {
     Promise.all([
       getUserInfoForUid2(req.p.uid),
       getConversationInfo(req.p.zid),
@@ -2393,7 +2393,11 @@ function initializePolisHelpers(mongoParams) {
       });
       req.pipe(x);
       x.on("error", function(err) {
-        emailBadProblemTime("darwin call failed - " + JSON.stringify(err));
+        if (retryCount < 3) {
+          doProxyDataExportCall(retryCount + 1, req, res, urlBuilderFunction, returnImmediately);
+        } else {
+          emailBadProblemTime("darwin call failed after " + retryCount + " tries - " + JSON.stringify(err));
+        }
       });
       if (returnImmediately) {
         res.status(200).json({});
@@ -2412,7 +2416,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_dataExport(req, res) {
-    doProxyDataExportCall(req, res, function(exportServerUser, exportServerPass, email) {
+    doProxyDataExportCall(0, req, res, function(exportServerUser, exportServerPass, email) {
       return "https://" +
         exportServerUser + ":" + exportServerPass +
         "@"+process.env.SERVICE_MATHAPI_HOSTNAME+"/datadump/get?zinvite=" +
@@ -2425,7 +2429,7 @@ function initializePolisHelpers(mongoParams) {
 
 
   function handle_GET_dataExport_results(req, res) {
-    doProxyDataExportCall(req, res, function(exportServerUser, exportServerPass, email) {
+    doProxyDataExportCall(0, req, res, function(exportServerUser, exportServerPass, email) {
       return "https://" +
         exportServerUser + ":" + exportServerPass +
         "@"+process.env.SERVICE_MATHAPI_HOSTNAME+"/datadump/results?zinvite=" +
