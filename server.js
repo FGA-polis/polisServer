@@ -1655,6 +1655,16 @@ function initializePolisHelpers(mongoParams) {
       if (!conv.is_active) {
         throw "polis_err_conversation_is_closed";
       }
+      if (conv.auth_needed_to_vote) {
+        return getSocialInfoForUsers([uid]).then((info) => {
+          var socialAccountIsLinked = info.length > 0;
+          if (socialAccountIsLinked) {
+            return conv;
+          } else {
+            throw "polis_err_post_votes_social_needed";
+          }
+        });
+      }
       return conv;
     }).then(function(conv) {
       return doVotesPost(uid, pid, conv, tid, voteType, weight, shouldNotify);
@@ -6258,7 +6268,7 @@ Email verified! You can close this tab or hit the back button.
           return !c.anon && !c.is_seed;
         });
         let uids = _.pluck(nonAnonComments, "uid");
-        return getSocialInforForUsers(uids).then(function(socialInfos) {
+        return getSocialInfoForUsers(uids).then(function(socialInfos) {
           let uidToSocialInfo = {};
           socialInfos.forEach(function(info) {
             // whitelist properties to send
@@ -7325,6 +7335,7 @@ Email verified! You can close this tab or hit the back button.
       pid = ptpt.pid;
     }) : Promise.resolve();
 
+
     pidReadyPromise.then(function() {
 
       // let conv;
@@ -7370,6 +7381,8 @@ Email verified! You can close this tab or hit the back button.
           fail(res, 406, "polis_err_vote_duplicate", err); // TODO allow for changing votes?
         } else if (err === "polis_err_conversation_is_closed") {
           fail(res, 403, "polis_err_conversation_is_closed", err);
+        } else if (err === "polis_err_post_votes_social_needed") {
+          fail(res, 403, "polis_err_post_votes_social_needed", err);
         } else {
           fail(res, 500, "polis_err_vote", err);
         }
@@ -9702,7 +9715,7 @@ Email verified! You can close this tab or hit the back button.
   //   return p;
   // }
 
-  function getSocialInforForUsers(uids) {
+  function getSocialInfoForUsers(uids) {
     uids = _.uniq(uids);
     uids.forEach(function(uid) {
       if (!_.isNumber(uid)) {
@@ -9713,7 +9726,7 @@ Email verified! You can close this tab or hit the back button.
       return Promise.resolve([]);
     }
     let uidString = uids.join(",");
-    return pgQueryP_metered_readOnly("getSocialInforForUsers", "with fb as (select * from facebook_users where uid in (" + uidString + ")), tw as (select * from twitter_users where uid in (" + uidString + ")) select *, coalesce(fb.uid, tw.uid) as uid from fb full outer join tw on tw.uid = fb.uid;", []);
+    return pgQueryP_metered_readOnly("getSocialInfoForUsers", "with fb as (select * from facebook_users where uid in (" + uidString + ")), tw as (select * from twitter_users where uid in (" + uidString + ")) select *, coalesce(fb.uid, tw.uid) as uid from fb full outer join tw on tw.uid = fb.uid;", []);
   }
 
   function updateVoteCount(zid, pid) {
